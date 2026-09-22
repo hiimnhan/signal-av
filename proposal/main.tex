@@ -1,0 +1,525 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black]{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{geometry}
+\usepackage{parskip}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{booktabs}
+
+\geometry{margin=2.5cm}
+\setstretch{1.15}
+
+\titleformat{\paragraph}[runin]{\normalfont\normalsize\bfseries}{}{0em}{}[.]
+\titlespacing{\paragraph}{0pt}{0.75\baselineskip}{0.5em}
+
+\title{\textbf{A Cooperative Signalling-Game Formulation for\\[0.3em]
+Multi-Agent Highway Driving}\\[0.6em]
+\large Measuring Emergent Behavioural Conventions via\\
+Multi-Agent Reinforcement Learning}
+\author{Nhan Nguyen}
+\date{Master's Dissertation Proposal}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Autonomous highway driving is, at its core, a multi-agent decision problem: every vehicle
+carries a private behavioural type that can't be directly observed. Two broad approaches have
+dominated the field. The first infers types from observed trajectories but doesn't account for the
+fact that the ego-vehicle is simultaneously being inferred by others. The second solves analytical
+equilibria under assumed payoffs with hand-specified signals. Neither asks what the classical
+signalling-game literature treats as primary - given a shared behavioural signal space, what
+communicative conventions actually emerge from interaction?
+
+This thesis takes that question seriously. Cooperative multi-agent highway driving is formulated
+as a repeated signalling game over a small discrete vocabulary of behavioural signals whose
+meanings aren't pre-assigned, and the methodological machinery is developed to measure
+emergent informativeness via multi-agent reinforcement learning with a recurrent type encoder. Three concrete deliverables follow: (i) a formal cooperative signalling-game model for
+continuous-control highway driving with a behaviourally-grounded, non-cheap-talk signal space;
+(ii) an operational mutual-information criterion, $\rho$, for detecting pooling, partial-pooling, and
+separating regimes; and (iii) an experimental demonstration across three conditions establishing
+that $\rho$ responds to the behavioural content of type labels rather than their mere presence,
+and that the predominant pooling at the current preference divergence ($d=0.30$) is consistent
+with the Spence/Crawford--Sobel prediction that separation requires $d > d_{\text{sep}}$, a
+threshold derived analytically from the reward structure's single-crossing condition.
+\end{abstract}
+
+\section{Introduction}
+
+Highway driving means constant negotiation with vehicles you can't fully read. Caution,
+assertiveness, risk tolerance, preferred following distance - none of it is directly observable.
+The field's standard answer has been perception, prediction, planning: build a probabilistic model
+of neighbour motion and let the planner marginalise over it~\cite{chen2022milestones,yurtsever2020survey}.
+Prediction methods have come a long way - from rule-based forward simulation, through belief
+tracking over discrete intent hypotheses~\cite{bai2015intention,zhou2018joint}, to unsupervised
+latent-trait inference with recurrent or attention-based
+encoders~\cite{liu2022learning,liu2024automatic,ma2021reinforcement}.
+
+But that entire trajectory frames the problem one-sidedly. The ego-vehicle asks \textit{what
+will my neighbour do?} and stops there. A human driver also asks the other half:
+\textit{what do my neighbours think I am, and is my behaviour shaping that belief?}
+Real drivers don't just execute manoeuvres at minimum cost. The way they close a gap, ease
+off the accelerator, or begin a lane change typically carries more information than what's strictly
+needed to complete the move. Those excess margins are signals, and other
+drivers read them~\cite{fox2019chicken,risto2017human,wang2020driver}.
+
+Consider a concrete two-vehicle instance. Car~A is cautious; car~B is assertive. Both
+types are private: neither vehicle can directly observe the other's behavioural disposition.
+
+B approaches A from behind in the same lane. Over the preceding five seconds, B has
+maintained a tight following distance, accepted small gaps, and initiated accelerations
+sharply. A observes this kinematic history and updates its belief: the follower is probably
+assertive. A responds by holding a wider headway than it otherwise would, smoothing its
+own deceleration profile to avoid provoking a rear-end conflict. Critically, A did not change
+its \textit{destination} - it is still tracking the same speed target - but it changed
+\textit{how} it pursues that target, because its model of B has changed.
+
+Meanwhile, B is reading A. A's wide margins, early braking, and smooth acceleration
+smoothness are recognised as the kinematic signature of a cautious type. B updates its
+belief accordingly and adjusts its gap-acceptance threshold upward: it will wait for a
+larger gap before forcing a merge, because it has learned that A will not accelerate
+assertively to close one. Again, B's destination is unchanged; only its execution style
+shifts in response to its inferred model of A.
+
+Neither vehicle has sent an explicit message. Coordination emerged entirely from the
+observable style of otherwise routine manoeuvres. The same physical action - maintain
+speed, decelerate, drift laterally - carried different information depending on
+\textit{how} it was executed, and both vehicles exploited that information to reduce
+conflict without any direct communication channel.
+
+This is the province of signalling-game theory~\cite{crawford1982strategic,spence1973job}.
+Informed senders transmit observable signals; uninformed receivers update beliefs via Bayes'
+rule and respond accordingly. Equilibria fall into three canonical regimes: \textit{separating},
+where different types emit different signals and communication is fully informative;
+\textit{pooling}, where all types converge on one signal and communication collapses; and
+\textit{partial-pooling} somewhere in between~\cite{fudenberg1991game}. The existence of a
+signal space doesn't determine by itself whether it'll be used informatively. Whether it is depends
+on the game structure.
+
+This thesis casts cooperative multi-agent highway driving as such a signalling game, then builds
+the empirical tools to determine which regime actually emerges when agents are trained over a
+shared discrete vocabulary whose meanings are deliberately left unassigned. The
+cooperative-population restriction is methodologically deliberate: it removes strategic deception
+as a confound. Any pooling outcome can't be attributed to agents intentionally misrepresenting
+themselves, so the presence or absence of separation becomes diagnostic of game structure rather
+than adversarial strategy.
+
+% \section{Research Gap}
+%
+% The gap this work targets is visible across three parallel literatures whose combined coverage
+% still doesn't reach our question.
+%
+% \paragraph{Strand 1: Analytical signalling games in lane-changing}
+% \citet{shao2020discretionary} model discretionary lane change as a signalling game between
+% aggressive and conservative sender types, calibrating a Perfect Bayesian Equilibrium against
+% NGSIM data. The signal is a single binary indicator; payoffs are hand-specified; the equilibrium
+% is solved, not learned. A broader analytical
+% literature~\cite{ali2019game,talebpour2015modeling,zhang2022game} likewise assumes fixed
+% payoffs and solves for Nash or Stackelberg equilibria. This establishes theoretical precedent but
+% leaves open how a signalling policy would be acquired from experience rather than imposed -
+% and what happens when the signal space is larger than binary with semantics that aren't
+% pre-assigned.
+%
+% \paragraph{Strand 2: Latent-trait inference plus RL planning}
+% A growing body of work infers driver traits via variational or attention-based encoders and
+% concatenates the latent representation with the planning state in an RL
+% policy~\cite{chakraborty2023structural,liu2022learning,liu2024automatic,ma2021reinforcement}.
+% These methods are structurally one-sided: inference flows from neighbours to the ego-vehicle
+% only. There's no construct of the ego-vehicle projecting a type outward, no signal space separate
+% from the action space, no equilibrium concept at all.
+%
+% \paragraph{Strand 3: Emergent communication in MARL}
+% The MARL literature on emergent
+% communication~\cite{foerster2016learning,lazaridou2020emergent,sukhbaatar2016learning} asks
+% precisely the question we raise - how agents learn to use a shared signal space. But it almost
+% exclusively assumes a cheap-talk channel: messages carry no physical cost. Driving violates this.
+% Every signal must be carried on physical behaviour that simultaneously affects the trajectory and
+% incurs driving costs. Costly signalling~\cite{spence1973job,zahavi1975mate} produces
+% fundamentally different equilibrium structures than cheap talk does.
+
+% \paragraph{Statement of the gap}
+% Strand~1 gives the equilibrium framework but no learning. Strand~2 gives learning-based type
+% inference but no signalling. Strand~3 gives learned signalling but only under cheap-talk
+% assumptions that don't hold for driving. What's missing is a formulation that is simultaneously:
+% (a) a signalling game in the Spence/Crawford--Sobel sense; (b) learned end-to-end via
+% decentralised MARL; (c) played over a discrete, behaviourally-grounded vocabulary with
+% unassigned semantics; and (d) studied for the emergent convention itself, not just for the
+% resulting driving policy.
+
+\section{Research Questions}
+
+\paragraph{RQ1 - Measurable emergence of non-trivial signal structure}
+When cooperative agents are trained jointly with a shared discrete behavioural signal space over
+a heterogeneous population, does the separation coefficient $\rho$ (Section~\ref{sec:eval})
+reliably exceed a random-signal baseline across training seeds?
+
+\paragraph{RQ2 - Necessity of type heterogeneity}
+Does $\rho$ differ between a bimodal population where type labels correspond to distinct reward
+functions and one where both labels share identical reward weights? In the same-reward control,
+both type tokens are present and sampled equally so $\rho$ remains well-defined, but the labels
+carry no behavioural content - no incentive gradient exists to drive separation. If $\rho$ stays
+near the random-signal level in this control but rises in the bimodal condition, any elevation is
+attributable to the behavioural content of the type labels rather than to architectural effects of
+the signalling head.
+
+\section{Method}
+
+\subsection{Formalism}
+
+The highway is modelled as a partially observable stochastic game. Each agent $i$ has a latent
+type $\theta_i \in \Theta$, fixed within an episode and resampled across episodes from a
+population distribution. We use $|\Theta| = 2$ (cautious, assertive), with the cluster
+determining the weighting of safety, progress, and comfort terms in the agent's intrinsic reward.
+Types are private; there are no persistent identifiers across episodes, and no communication
+channel exists other than the behavioural signal space defined below.
+
+At each decision step $t$, agent $i$ selects a driving action $a_i \in \mathcal{A}$ -
+continuous: longitudinal acceleration, steering rate - and a discrete signal $m_i \in \mathcal{M}$
+from a vocabulary of cardinality $|\mathcal{M}| = 3$. The signal is a discrete selector that
+determines which of three pre-specified execution profiles renders $a_i$. Every profile is
+physically feasible and driving-legal; what differs across them is the observable kinematic
+signature.
+
+A joint policy is a pair $(\sigma_i, \pi_i)$ for each agent: a signalling strategy $\sigma_i(s_i,
+\theta_i) \to \Delta(\mathcal{M})$ and a response strategy $\pi_i(s_i, b_i) \to \Delta(\mathcal{A})$,
+where $b_i$ is the belief held by agent $i$ over the types of currently visible neighbours. The
+analytical reference point is Perfect Bayesian Equilibrium~\cite{fudenberg1991game}: strategies
+are mutually best-responding, and on-path beliefs are Bayes-updated as
+\begin{equation}
+    b_i(\theta_j \mid m_j, h_j) \;\propto\; \sigma_j(m_j \mid s_j, \theta_j)\,
+    b_i(\theta_j \mid h_j),
+    \label{eq:bayes}
+\end{equation}
+where $h_j$ is the recent observed behavioural history of agent $j$. We don't claim to find a
+PBE; we train via MARL and characterise whatever equilibrium the training procedure reaches.
+
+\subsection{Architecture}
+
+For each visible neighbour $j$, a type embedding is produced by a single-layer GRU encoder
+over a windowed sequence of observed kinematic features and emitted signals:
+\[
+    \hat{\theta}_{ij}(t) \;=\; f_\phi\!\left(\bigl\{(o_j(s),\, m_j(s))\bigr\}_{s=t-W}^{t}\right),
+\]
+with window $W = 5\,\text{s}$. A GRU is chosen as the primary encoder for training stability at
+this scale. The encoder is shared across agents under parameter sharing during centralised training; at execution time every agent runs its own copy over its own observations.
+
+The full policy decomposes into three heads sharing the encoder. There's the type encoder
+$f_\phi$; a signalling head $\sigma_\theta$ mapping $(s_i, \theta_i, \{\hat{\theta}_{ij}\}_j)$ to
+a categorical distribution over $\mathcal{M}$ on the sender side; and a response head $\pi_\psi$
+mapping $(s_i, \{\hat{\theta}_{ij}\}_j)$ to a continuous driving action on the receiver side - this
+head doesn't take the agent's own type as input. Neighbour embeddings are aggregated by a
+permutation-invariant DeepSets layer~\cite{zaheer2017deep} to handle variable neighbour counts.
+Training uses MAPPO~\cite{yu2022surprising} under centralised training with decentralised
+execution~\cite{lowe2017multi}. MAPPO is the natural choice here: the signalling head is
+categorical, and MAPPO is the established default for cooperative MARL with mixed
+discrete-continuous action spaces. The indirect credit-assignment problem for the signalling
+head --- gradient arrives only through downstream neighbour behaviour --- is mitigated by two
+mechanisms: the centralised critic provides a variance-reducing value baseline for the
+REINFORCE gradient through the discrete signal, and a separate entropy coefficient on the
+signalling head is annealed linearly from a high initial value to a low final value over
+training, maintaining signal exploration until type-informative structure can form.
+
+\subsection{Signal Space}
+
+$\mathcal{M}$ is a small discrete vocabulary of fixed execution profiles. For any commanded
+driving action $a$, each $m \in \mathcal{M}$ specifies a distinct but physically feasible way to
+realise $a$. Each profile is a parametric override passed to the IDM/MOBIL low-level controllers
+in \texttt{highway-env}: the commanded action $a_i$ sets the target, and the profile determines
+the kinematic envelope within which it is executed. The three profiles are defined by the
+parameters in Table~\ref{tab:profiles}.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+Profile & Headway & Jerk cap & Gap-accept & Lateral drift \\
+        & multiplier & (m\,s$^{-3}$) & threshold (m) & at initiation (m) \\
+\midrule
+$m_1$ (conservative) & $1.5\times$ & 1.0 & 15 & 0.3 \\
+$m_2$ (neutral)      & $1.0\times$ & 2.0 & 10 & 0.6 \\
+$m_3$ (assertive)    & $0.7\times$ & 4.0 &  6 & 1.0 \\
+\bottomrule
+\end{tabular}
+\caption{Execution-profile parameters. Headway multiplier scales the IDM desired headway;
+jerk cap bounds longitudinal acceleration rate; gap-accept threshold is the minimum accepted
+merge gap; lateral drift is the anticipatory displacement at lane-change initiation.}
+\label{tab:profiles}
+\end{table}
+
+Two design commitments follow from this. First, signal emission is costly in the sense of
+\citet{spence1973job}: different profiles incur different costs across progress, comfort, and
+safety dimensions, and no single profile dominates for every type. This cost asymmetry is what
+gives a separating equilibrium its leverage - cautious types find it cheaper to emit cautious
+profiles, assertive types find it cheaper to emit assertive ones - and it's exactly what a
+cheap-talk channel lacks. Second, and just as importantly, the semantics of each signal are
+deliberately left unassigned. No profile is labelled as meaning \textit{I am cautious}. Whether
+$m_k$ comes to denote a particular type is an emergent property of the trained population,
+measured rather than stipulated.
+
+\subsection{Reward Structure}
+
+The reward for agent $i$ is $R_i = R^{\mathrm{drive}}_i$, the standard driving reward over
+forward progress, collision avoidance, lane-keeping, and comfort, weighted according to
+$\theta_i$~\cite{leurent2018environment}. There's no reward term for the signal: no explicit
+bonus for truthful signalling, no penalty for lying. This is a deliberate methodological
+commitment. If we rewarded truthful signalling directly, RQ1 would be answered by
+construction - separation would emerge because we paid for it. Keeping $R_i$ free of any
+signal-dependent term ensures the regime we observe is an endogenous consequence of
+interaction structure, not reward engineering.
+
+This means the signalling head receives gradient only indirectly, through the effect of its signal
+on neighbour behaviour, which in turn affects $R^{\mathrm{drive}}_i$. It's the same
+credit-assignment pattern that emergent-communication work~\cite{foerster2016learning} must
+solve - but with the added complexity that our messages also have direct physical consequences
+for the sender. We expect this credit-assignment difficulty to be the principal practical challenge
+of the approach.
+
+\subsection{Preference Divergence and Separating Equilibrium Threshold}
+
+The degree to which the two types face misaligned incentives is captured by a scalar
+preference divergence:
+\begin{equation}
+    d \;=\; 1 - \frac{w_c \cdot w_a}{\|w_c\|\,\|w_a\|},
+    \label{eq:divergence}
+\end{equation}
+where $w_\theta = (w^\text{safety}_\theta,\, w^\text{progress}_\theta,\,
+w^\text{comfort}_\theta)$ is the reward-weight vector for type $\theta$. $d = 0$ when both
+types share identical weights (the same-reward control); $d$ increases as the weight vectors
+diverge.
+
+The Crawford--Sobel / Spence single-crossing condition for a separating equilibrium requires
+that the reward differential of using profile $m_1$ versus $m_3$ has opposite signs across
+types. Define the profile differential vector
+$\boldsymbol{\Delta} = (\Delta_s, \Delta_p, \Delta_k)$, where
+$\Delta_i = \mathbb{E}[r_i \mid m_1] - \mathbb{E}[r_i \mid m_3]$ is the expected per-step
+reward component under profile $m_1$ minus that under $m_3$. From Table~\ref{tab:profiles}:
+$\Delta_s > 0$ (m$_1$ is safer), $\Delta_p < 0$ (m$_1$ is slower), and $\Delta_k > 0$
+(m$_1$ is smoother). Separation is supportable iff
+\begin{equation}
+    w_c \cdot \boldsymbol{\Delta} > 0
+    \quad \text{and} \quad
+    w_a \cdot \boldsymbol{\Delta} < 0.
+    \label{eq:single-crossing}
+\end{equation}
+
+To derive the minimum divergence $d_\text{sep}$ at which~\eqref{eq:single-crossing} first
+holds simultaneously, parameterise the weight vectors as
+\begin{equation}
+    w_c(\alpha) = \bar{w} + \alpha\,\delta, \qquad
+    w_a(\alpha) = \bar{w} - \alpha\,\delta,
+    \label{eq:weight-param}
+\end{equation}
+where $\bar{w} = \tfrac{1}{2}(w_c + w_a)$ is the mean weight vector and
+$\delta = \tfrac{1}{2}(w_c - w_a)$ is the half-difference; $\alpha = 0$ gives the
+same-reward baseline and $\alpha = 1$ recovers the current bimodal configuration.
+Each inequality in~\eqref{eq:single-crossing} imposes a linear threshold on $\alpha$:
+\begin{equation}
+    \alpha_c \;=\; \frac{-\bar{w} \cdot \boldsymbol{\Delta}}{\delta \cdot \boldsymbol{\Delta}},
+    \qquad
+    \alpha_a \;=\; \frac{\;\bar{w} \cdot \boldsymbol{\Delta}}{\delta \cdot \boldsymbol{\Delta}},
+    \qquad
+    \alpha_\text{sep} \;=\; \max(\alpha_c,\, \alpha_a).
+    \label{eq:alpha-sep}
+\end{equation}
+Converting back to cosine distance gives
+$d_\text{sep} = 1 - \cos\!\bigl(w_c(\alpha_\text{sep}),\, w_a(\alpha_\text{sep})\bigr)$.
+If the current bimodal condition satisfies $d > d_\text{sep}$, the formulation lies in the
+analytically supportable separation regime. The $d$-sweep in Section~\ref{sec:conditions} tests whether empirical $\rho$ tracks this
+boundary across five divergence levels. Note that $d$ and $d_{\text{sep}}$ are our
+operationalisations of the preference-bias concept introduced by~\citet{crawford1982strategic};
+the single-crossing condition in~\eqref{eq:single-crossing} is the discrete analogue of
+Spence's~\cite{spence1973job} costly-signalling separability criterion applied to our reward
+structure.
+
+\subsection{Environment}
+
+The environment is \texttt{highway-env}~\cite{leurent2018environment}, extended to support
+(i)~heterogeneous agent populations drawn from a configurable type distribution, and (ii)~the
+discrete execution-profile vocabulary implemented as low-level controllers layered on the
+existing continuous action space. A single scenario is used throughout: dense multi-lane highway
+driving with $N = 6$ agents at nominal traffic density.
+
+\section{Evaluation Protocol}
+\label{sec:eval}
+
+\subsection{Primary Diagnostic}
+
+The central measurement is the empirical mutual information between the latent type and the
+emitted signal, estimated from evaluation rollouts:
+\begin{equation}
+    I(\Theta;\, \mathcal{M}) \;=\; \sum_{\theta \in \Theta,\, m \in \mathcal{M}}
+    p(\theta, m)\log\frac{p(\theta, m)}{p(\theta)\,p(m)}.
+    \label{eq:mi}
+\end{equation}
+where $\Theta = \{\text{cautious},\,\text{assertive}\}$ is the type space; $\mathcal{M} = \{m_1, m_2, m_3\}$ is the signal vocabulary; $p(\theta, m)$ is the empirical joint frequency of type $\theta$ emitting signal $m$, estimated from evaluation rollouts; $p(\theta)$ is the marginal type frequency (fixed at $0.5$ each in the bimodal condition); $p(m)$ is the marginal signal frequency, aggregated across all types; and the log-ratio $\log \tfrac{p(\theta,m)}{p(\theta)\,p(m)}$ measures how much more often the pair $(\theta, m)$ co-occurs than expected under statistical independence - zero when type and signal are unrelated, positive when a type preferentially selects a signal.
+
+We report $I(\Theta; \mathcal{M})$ in bits and normalise by $\log|\Theta|$ to give a separation
+coefficient $\rho \in [0, 1]$. Operationally: $\rho < 0.1$ indicates pooling (the signal carries
+essentially no information about type); $\rho > 0.9$ indicates separating (the signal determines
+type); intermediate values indicate partial-pooling. The distribution of $\rho$ across seeds and
+conditions directly addresses RQ1 and RQ2.
+
+Per-signal conditional distributions $p(\theta \mid m)$ are reported as a supplementary
+diagnostic, revealing whether any partial-pooling structure is clean - some signals fully
+informative, others uninformative - or gradual, where all signals carry intermediate information.
+
+\subsection{Intervention Test}
+\label{sec:intervention}
+
+Mutual information shows that signals are correlated with type but does not establish that
+receivers exploit those signals. A correlation - cautious agents happen to emit $m_1$
+for kinematic reasons unrelated to any communicative act - could produce elevated $\rho$ with
+no actual signalling function. To test causal use, the following seven conditions are evaluated
+on the best bimodal checkpoint, each over 200 episodes:
+
+\begin{enumerate}
+    \item \textbf{Intact (baseline).} Unmodified policy; all ablations are compared against
+    this reference on collision rate ($\Delta_\text{collision}$) and merge-success rate
+    ($\Delta_\text{merge}$).
+
+    \item \textbf{Signal randomisation.} Each emitted token is replaced with a uniform draw
+    from $\mathcal{M}$ before being passed to the environment and to neighbour observations.
+    If receivers condition on token content, policy quality should degrade. $\rho$ collapses by
+    construction here; the relevant measure is driving-performance degradation.
+
+    \item \textbf{Signal hiding.} The signal component is zeroed out in each neighbour's
+    observation vector, so receivers see kinematics only with no token. This tests whether the
+    response head uses the signal channel at all.
+
+    \item \textbf{Signal permutation.} The mapping from token to execution profile is scrambled,
+    so the kinematic consequence of each token no longer matches what was learned. This separates
+    the communicative token from its physical referent.
+
+    \item \textbf{Kinematic hiding.} Kinematic observations are zeroed while signal tokens are
+    left intact. Receivers see tokens only, with no co-occurring kinematics. This tests whether
+    tokens carry information independently of the kinematic context in which they are emitted.
+
+    \item \textbf{Full blackout.} Both signal tokens and kinematic observations are zeroed.
+    This establishes floor performance when receivers are entirely blind, providing a lower bound
+    against which the partial hiding conditions are interpreted.
+
+    \item \textbf{Desync.} The policy token is emitted and remains visible in neighbour
+    observations as normal, but a uniformly random execution profile is applied kinematically
+    at each step via a low-level override. This breaks the token$\leftrightarrow$kinematic-image
+    binding without altering what receivers observe in the token channel. A crash spike under
+    desync - but not under signal hiding - indicates that receivers relied on the kinematic image
+    of the token rather than the token itself; the absence of such a spike indicates that the token
+    channel is the primary carrier. To our knowledge, no prior emergent-communication study
+    includes this ablation: cheap-talk architectures have no separable physical-execution
+    component, so the token--kinematic decoupling that desync exploits cannot arise.
+\end{enumerate}
+
+The critical diagnostic is the comparison between conditions~3 and~7: elevated $\rho$ that
+survives signal hiding ($\rho_\text{hide} \approx \rho_\text{intact}$) indicates the
+type--signal correlation is kinematic rather than communicative; a desync crash spike confirms
+that receivers had been exploiting the kinematic image of the token. Conditions~3--6 jointly
+decompose the signal channel into its token and kinematic components and establish whether each
+independently supports coordination.
+
+\subsection{Experimental Conditions}
+\label{sec:conditions}
+
+Three conditions are compared, each across twenty training seeds:
+\begin{enumerate}
+    \item \textbf{Full method, bimodal population.} 50\% cautious, 50\% assertive. The
+    principal condition; addresses RQ1.
+
+    \item \textbf{Full method, same-reward bimodal population.} Both type labels \{cautious,
+    assertive\} are present and sampled equally ($50\%$ each), but both receive the same reward
+    weight vector - identical safety, progress, and comfort coefficients. The signalling head
+    observes a type token, but the token carries no behavioural content. Tests RQ2: $\rho$ should
+    remain near the random-signal level here but be elevated in condition~1 if type-behavioural
+    content, not the label itself, drives separation.
+
+    \item \textbf{Random-signal baseline, bimodal population.} Identical architecture with the
+    signalling head replaced by uniform random emission over $\mathcal{M}$. Controls for the
+    possibility that any measured $\rho$ is an artefact of the extra action dimension rather than
+    learned informativeness.
+\end{enumerate}
+
+\subsection{Statistical Protocol}
+
+Results are reported as per-seed values with means and 95\% confidence intervals across twenty seeds. Evaluation
+uses 200~episodes per seed. Driving-performance metrics - collision rate, near-miss count,
+merge-success rate - are logged throughout for contextual reporting.
+
+% \subsection{Toy-Configuration Sanity Check}
+%
+% Before committing compute to the three main conditions, a two-type / two-signal toy
+% configuration ($|\Theta| = 2$, $|\mathcal{M}| = 2$) is trained to verify that $\rho$ rises above
+% the random-signal baseline over the course of training. This serves as an early architectural
+% validation: if $\rho$ doesn't move on the toy configuration, the system needs diagnosis before
+% full-scale runs are attempted.
+%
+% \section{Theoretical Interpretation}
+%
+% No formal PBE existence proof is attempted for the full game. In continuous control this isn't
+% tractable, and even if it were, it wouldn't tell us which equilibrium a learning procedure selects
+% among potentially many. Instead, the empirical findings are related to the analytical
+% signalling-game literature in one specific way.
+%
+% \citet{crawford1982strategic} show that in a one-shot sender--receiver game, the number of
+% distinguishable messages at any equilibrium is bounded above by a quantity that decreases as
+% sender and receiver preferences diverge. In the perfectly aligned case, arbitrarily fine
+% communication is possible; in the perfectly misaligned case, only pooling equilibria survive. In
+% our cooperative setting, all agents share the same driving reward structure up to type-dependent
+% weights - preferences are mostly aligned but not identically so, since a cautious sender and an
+% assertive receiver still disagree about the value of a tight gap. Crawford--Sobel's qualitative
+% prediction is therefore that partial-pooling, rather than full separation, should be the generic
+% outcome. That coincides with H1.
+%
+% We report $\rho$ and the conditional distributions $p(\theta \mid m)$ for each condition and
+% state whether the observed values are qualitatively consistent with this prediction. The goal is a
+% grounded, non-overclaiming connection between the measured emergent regimes and the
+% classical theory.
+
+\section{Expected Contributions}
+
+\begin{enumerate}
+    \item \textbf{Formulation.} A cooperative repeated signalling-game formulation of
+    multi-agent highway driving with a behaviourally-grounded, non-cheap-talk signal space,
+    closing the gap between analytical signalling-game lane-change
+    models~\cite{shao2020discretionary} and learning-based MARL.
+
+    \item \textbf{Operational diagnostic.} The separation coefficient $\rho$, grounded in
+    empirical mutual information, as a method-independent criterion for classifying trained MARL
+    populations as pooling, partial-pooling, or separating; complemented by a seven-battery
+    intervention test --- including a novel desync condition that keeps the emitted token visible
+    to receivers while randomising the sender's physical execution, an ablation that cannot be
+    constructed in cheap-talk architectures --- that moves beyond correlation to causal use of
+    the signal channel.
+
+    \item \textbf{Experimental demonstration.} A three-condition experiment establishing that
+    the formulation trains end-to-end, that $\rho$ responds to the behavioural content of type
+    labels rather than their mere presence, that the predominant pooling regime at the current preference divergence ($d=0.30$, mean
+    $\rho=0.087$) is consistent with the analytically derived threshold $d_{\text{sep}}$ ---
+    separation is not expected below this value --- and that $\rho$ is elevated 43-fold above
+    the same-reward control across all seeds, attributing measured separation to the
+    behavioural content of type labels rather than to architectural or labelling effects.
+    A transformer encoder is identified as a future extension if the GRU baseline trains reliably.
+\end{enumerate}
+
+\section{Practical Relevance}
+
+Informal behavioural signalling is part of how human drivers coordinate - and the absence of a
+modelled signalling layer is one plausible source of the stilted or freezing interactions sometimes
+seen in deployed autonomous systems. A driving stack that can emit legible behavioural cues and
+read them is likely to interact more fluidly with human traffic, regardless of whether those
+specific signals emerge from training or are deliberately designed. This thesis provides the
+measurement apparatus needed to ask whether a given MARL driving policy has learned a
+legible behavioural vocabulary at all - which is a prerequisite for deliberate design.
+
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

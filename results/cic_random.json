@@ -1,0 +1,102 @@
+[
+  {
+    "seed": "random_seed1",
+    "cic": 0.009714865125715733,
+    "n_steps": 12000
+  },
+  {
+    "seed": "random_seed100",
+    "cic": 0.0067463219165802,
+    "n_steps": 12000
+  },
+  {
+    "seed": "random_seed1000",
+    "cic": 0.00756178330630064,
+    "n_steps": 10806
+  },
+  {
+    "seed": "random_seed1100",
+    "cic": 0.007038801442831755,
+    "n_steps": 10380
+  },
+  {
+    "seed": "random_seed1200",
+    "cic": 0.007751951925456524,
+    "n_steps": 10512
+  },
+  {
+    "seed": "random_seed13",
+    "cic": 0.00829033087939024,
+    "n_steps": 12000
+  },
+  {
+    "seed": "random_seed200",
+    "cic": 0.006369525566697121,
+    "n_steps": 7968
+  },
+  {
+    "seed": "random_seed270",
+    "cic": 0.011990786530077457,
+    "n_steps": 12000
+  },
+  {
+    "seed": "random_seed300",
+    "cic": 0.009280270896852016,
+    "n_steps": 10332
+  },
+  {
+    "seed": "random_seed33",
+    "cic": 0.006084328517317772,
+    "n_steps": 10092
+  },
+  {
+    "seed": "random_seed400",
+    "cic": 0.0105216009542346,
+    "n_steps": 9654
+  },
+  {
+    "seed": "random_seed42",
+    "cic": 0.008628712967038155,
+    "n_steps": 9672
+  },
+  {
+    "seed": "random_seed500",
+    "cic": 0.008161959238350391,
+    "n_steps": 12000
+  },
+  {
+    "seed": "random_seed515",
+    "cic": 0.004147406201809645,
+    "n_steps": 11070
+  },
+  {
+    "seed": "random_seed59",
+    "cic": 0.005311176646500826,
+    "n_steps": 11034
+  },
+  {
+    "seed": "random_seed600",
+    "cic": 0.008547513745725155,
+    "n_steps": 11814
+  },
+  {
+    "seed": "random_seed700",
+    "cic": 0.005435652565211058,
+    "n_steps": 11316
+  },
+  {
+    "seed": "random_seed800",
+    "cic": 0.008618663996458054,
+    "n_steps": 10380
+  },
+  {
+    "seed": "random_seed900",
+    "cic": 0.0062156543135643005,
+    "n_steps": 10524
+  },
+  {
+    "seed": "random_seed999",
+    "cic": 0.007409181445837021,
+    "n_steps": 9762
+  }
+]

@@ -1,0 +1,82 @@
+[
+  {
+    "seed": "no_signal_seed1",
+    "cic": 1.583712183617081e-08,
+    "n_steps": 8934
+  },
+  {
+    "seed": "no_signal_seed100",
+    "cic": 1.623611112222534e-08,
+    "n_steps": 11760
+  },
+  {
+    "seed": "no_signal_seed13",
+    "cic": 1.4870417786028156e-08,
+    "n_steps": 11628
+  },
+  {
+    "seed": "no_signal_seed200",
+    "cic": 1.5209252524073236e-08,
+    "n_steps": 12000
+  },
+  {
+    "seed": "no_signal_seed270",
+    "cic": 1.4670738401889594e-08,
+    "n_steps": 11112
+  },
+  {
+    "seed": "no_signal_seed300",
+    "cic": 1.6671835467718665e-08,
+    "n_steps": 11070
+  },
+  {
+    "seed": "no_signal_seed33",
+    "cic": 1.8166918636097762e-08,
+    "n_steps": 12000
+  },
+  {
+    "seed": "no_signal_seed400",
+    "cic": 1.4438420237183891e-08,
+    "n_steps": 12000
+  },
+  {
+    "seed": "no_signal_seed42",
+    "cic": 1.451415609921014e-08,
+    "n_steps": 11106
+  },
+  {
+    "seed": "no_signal_seed500",
+    "cic": 1.5865689206862044e-08,
+    "n_steps": 12000
+  },
+  {
+    "seed": "no_signal_seed515",
+    "cic": 1.6170133676496334e-08,
+    "n_steps": 10398
+  },
+  {
+    "seed": "no_signal_seed59",
+    "cic": 1.616600009413105e-08,
+    "n_steps": 11436
+  },
+  {
+    "seed": "no_signal_seed600",
+    "cic": 1.5171604417218987e-08,
+    "n_steps": 12000
+  },
+  {
+    "seed": "no_signal_seed700",
+    "cic": 1.579718933442109e-08,
+    "n_steps": 11106
+  },
+  {
+    "seed": "no_signal_seed800",
+    "cic": 1.4463293673827593e-08,
+    "n_steps": 10596
+  },
+  {
+    "seed": "no_signal_seed999",
+    "cic": 1.53862362850532e-08,
+    "n_steps": 9666
+  }
+]

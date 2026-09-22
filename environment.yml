@@ -1,0 +1,21 @@
+name: signal-av
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pytorch
+  - numpy
+  - scipy=1.17.1
+  - pandas=3.0.2
+  - matplotlib=3.10.9
+  - statsmodels=0.14.6
+  - pip:
+      - highway-env
+      - gymnasium
+      - benchmarl
+      - torchrl
+      - tensordict
+      - tensorboard
+      - tqdm

@@ -1,0 +1,102 @@
+[
+  {
+    "seed": "bimodal_seed1",
+    "cic": 0.16602455079555511,
+    "n_steps": 11586
+  },
+  {
+    "seed": "bimodal_seed100",
+    "cic": 0.03855115547776222,
+    "n_steps": 12000
+  },
+  {
+    "seed": "bimodal_seed1000",
+    "cic": 0.05442110821604729,
+    "n_steps": 9708
+  },
+  {
+    "seed": "bimodal_seed1100",
+    "cic": 0.05196857824921608,
+    "n_steps": 11580
+  },
+  {
+    "seed": "bimodal_seed1200",
+    "cic": 0.02260865457355976,
+    "n_steps": 8658
+  },
+  {
+    "seed": "bimodal_seed13",
+    "cic": 0.047656793147325516,
+    "n_steps": 12000
+  },
+  {
+    "seed": "bimodal_seed200",
+    "cic": 0.054514527320861816,
+    "n_steps": 11784
+  },
+  {
+    "seed": "bimodal_seed270",
+    "cic": 0.07085283100605011,
+    "n_steps": 11754
+  },
+  {
+    "seed": "bimodal_seed300",
+    "cic": 0.020442187786102295,
+    "n_steps": 11070
+  },
+  {
+    "seed": "bimodal_seed33",
+    "cic": 0.06434816122055054,
+    "n_steps": 12000
+  },
+  {
+    "seed": "bimodal_seed400",
+    "cic": 0.017413467168807983,
+    "n_steps": 9510
+  },
+  {
+    "seed": "bimodal_seed42",
+    "cic": 0.03422422707080841,
+    "n_steps": 12000
+  },
+  {
+    "seed": "bimodal_seed500",
+    "cic": 0.03197912871837616,
+    "n_steps": 11736
+  },
+  {
+    "seed": "bimodal_seed515",
+    "cic": 0.06735143810510635,
+    "n_steps": 8256
+  },
+  {
+    "seed": "bimodal_seed59",
+    "cic": 0.0633578896522522,
+    "n_steps": 11928
+  },
+  {
+    "seed": "bimodal_seed600",
+    "cic": 0.04165682941675186,
+    "n_steps": 12000
+  },
+  {
+    "seed": "bimodal_seed700",
+    "cic": 0.032562557607889175,
+    "n_steps": 10116
+  },
+  {
+    "seed": "bimodal_seed800",
+    "cic": 0.06117035821080208,
+    "n_steps": 10824
+  },
+  {
+    "seed": "bimodal_seed900",
+    "cic": 0.050768278539180756,
+    "n_steps": 12000
+  },
+  {
+    "seed": "bimodal_seed999",
+    "cic": 0.07268922030925751,
+    "n_steps": 12000
+  }
+]

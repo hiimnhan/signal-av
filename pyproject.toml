@@ -1,0 +1,9 @@
+[project]
+name = "signal-av"
+version = "0.0.1"
+description = "Cooperative signalling-game formulation for multi-agent highway driving"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

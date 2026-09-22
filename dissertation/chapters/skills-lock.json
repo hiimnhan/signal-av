@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "peer-review": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "computedHash": "c5373ab821cfa92f0f9fec1911b246d2f99099ac25122472353881ffcf1aa88d"
+    }
+  }
+}

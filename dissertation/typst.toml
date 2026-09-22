@@ -1,0 +1,2 @@
+[package]
+entrypoint = "main.typ"

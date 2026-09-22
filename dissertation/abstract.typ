@@ -1,0 +1,7 @@
+
+#align(center)[#text(size: 16pt, weight: "bold")[Abstract]]
+#v(12pt)
+
+Autonomous highway driving is a multi-agent coordination problem in which every vehicle carries a private behavioural type that others cannot observe directly. This thesis formulates cooperative multi-agent highway driving as a repeated signalling game over a small discrete vocabulary of behaviourally grounded tokens whose meanings are not pre-assigned. It then asks whether communication emerges among the agents at all, and in what sense. The agents are trained using multi-agent reinforcement learning and the signalling channel is probed with evaluation-time interventions that separately disturb the token, the neighbour kinematics, and their binding.
+
+Communication does emerge, not in the form standard information metrics are designed to register, but through what we call _convention-of-use_. The token carries almost no information about a driver's hidden type. Nevertheless, corrupting the binding between token and behaviour raises the collision rate by 65 to 86%, depending on how the binding is broken. In this experiment, the active interventions revealed a dependence on the channel that the passive metrics did not register. This suggests that evaluations of emergent communication, and audits of connected-driving systems, should test the binding between message and behaviour directly rather than rely on measured informativeness alone.

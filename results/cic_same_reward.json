@@ -1,0 +1,102 @@
+[
+  {
+    "seed": "same_reward_seed1",
+    "cic": 0.011312450282275677,
+    "n_steps": 12000
+  },
+  {
+    "seed": "same_reward_seed100",
+    "cic": 0.004902554675936699,
+    "n_steps": 12000
+  },
+  {
+    "seed": "same_reward_seed1000",
+    "cic": 0.009711729362607002,
+    "n_steps": 10008
+  },
+  {
+    "seed": "same_reward_seed1100",
+    "cic": 0.01124513242393732,
+    "n_steps": 12000
+  },
+  {
+    "seed": "same_reward_seed1200",
+    "cic": 0.004777770489454269,
+    "n_steps": 10134
+  },
+  {
+    "seed": "same_reward_seed13",
+    "cic": 0.003742842935025692,
+    "n_steps": 12000
+  },
+  {
+    "seed": "same_reward_seed200",
+    "cic": 0.006852844264358282,
+    "n_steps": 11388
+  },
+  {
+    "seed": "same_reward_seed270",
+    "cic": 0.009059607982635498,
+    "n_steps": 12000
+  },
+  {
+    "seed": "same_reward_seed300",
+    "cic": 0.00741368206217885,
+    "n_steps": 9822
+  },
+  {
+    "seed": "same_reward_seed33",
+    "cic": 0.01631755195558071,
+    "n_steps": 12000
+  },
+  {
+    "seed": "same_reward_seed400",
+    "cic": 0.005388391204178333,
+    "n_steps": 10926
+  },
+  {
+    "seed": "same_reward_seed42",
+    "cic": 0.006491887848824263,
+    "n_steps": 8712
+  },
+  {
+    "seed": "same_reward_seed500",
+    "cic": 0.005647121462970972,
+    "n_steps": 11988
+  },
+  {
+    "seed": "same_reward_seed515",
+    "cic": 0.0065948874689638615,
+    "n_steps": 12000
+  },
+  {
+    "seed": "same_reward_seed59",
+    "cic": 0.01060881745070219,
+    "n_steps": 11172
+  },
+  {
+    "seed": "same_reward_seed600",
+    "cic": 0.006021550856530666,
+    "n_steps": 10218
+  },
+  {
+    "seed": "same_reward_seed700",
+    "cic": 0.005375472828745842,
+    "n_steps": 12000
+  },
+  {
+    "seed": "same_reward_seed800",
+    "cic": 0.007194774225354195,
+    "n_steps": 11910
+  },
+  {
+    "seed": "same_reward_seed900",
+    "cic": 0.0094230305403471,
+    "n_steps": 12000
+  },
+  {
+    "seed": "same_reward_seed999",
+    "cic": 0.008060364052653313,
+    "n_steps": 12000
+  }
+]

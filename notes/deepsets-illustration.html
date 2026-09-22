@@ -1,0 +1,417 @@
+<title>Why DeepSets</title>
+<style>
+  :root {
+    --ink: #1c2530;
+    --ink-soft: #4b5563;
+    --paper: #f7f5f0;
+    --paper-raised: #ffffff;
+    --line: #d8d3c8;
+    --bad: #b3492f;
+    --bad-soft: #f2e2dc;
+    --good: #2f6f5e;
+    --good-soft: #e0ebe6;
+    --accent: #3b5f8a;
+    --accent-soft: #e2e8f0;
+  }
+  :root[data-theme="dark"] {
+    --ink: #e8e6df; --ink-soft: #a3a99e; --paper: #14181d; --paper-raised: #1c222a;
+    --line: #333c46; --bad: #e08469; --bad-soft: #3a271f; --good: #7fc4ac;
+    --good-soft: #1e332c; --accent: #8fb3dd; --accent-soft: #223144;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #e8e6df; --ink-soft: #a3a99e; --paper: #14181d; --paper-raised: #1c222a;
+      --line: #333c46; --bad: #e08469; --bad-soft: #3a271f; --good: #7fc4ac;
+      --good-soft: #1e332c; --accent: #8fb3dd; --accent-soft: #223144;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); }
+  body {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    padding: clamp(20px, 4vw, 48px);
+    display: flex;
+    justify-content: center;
+  }
+  main { max-width: 960px; width: 100%; }
+  .sans { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  .eyebrow {
+    font-family: ui-monospace, monospace; font-size: 0.72rem; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--ink-soft); margin: 0 0 6px;
+  }
+  h1 { font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 600; margin: 0 0 10px; text-wrap: balance; letter-spacing: -0.01em; }
+  .lede {
+    font-family: -apple-system, sans-serif; font-size: 0.96rem; line-height: 1.6;
+    color: var(--ink-soft); max-width: 68ch; margin: 0 0 34px;
+  }
+  .lede b { color: var(--ink); font-weight: 600; }
+  code {
+    font-family: ui-monospace, monospace; background: var(--accent-soft); color: var(--accent);
+    padding: 0.1em 0.4em; border-radius: 3px; font-size: 0.88em;
+  }
+
+  /* ---- pipeline rows ---- */
+  .pipeline-block {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px 22px 22px;
+    margin-bottom: 18px;
+  }
+  .pipeline-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .pipeline-title { font-family: -apple-system, sans-serif; font-weight: 600; font-size: 1rem; letter-spacing: -0.01em; }
+  .verdict {
+    font-family: ui-monospace, monospace; font-size: 0.66rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 20px; white-space: nowrap;
+  }
+  .verdict.bad { background: var(--bad-soft); color: var(--bad); }
+  .verdict.good { background: var(--good-soft); color: var(--good); }
+
+  .flow {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    min-width: 108px;
+  }
+  .stage-label {
+    font-family: -apple-system, sans-serif; font-size: 0.72rem; font-weight: 600;
+    color: var(--ink); text-align: center; text-wrap: balance;
+  }
+  .tensor {
+    display: flex; gap: 4px; align-items: center; justify-content: center;
+    min-height: 44px;
+  }
+  .cell {
+    width: 34px; height: 34px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: ui-monospace, monospace; font-size: 0.7rem; font-weight: 600;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--line);
+    transition: order 0.5s, transform 0.5s cubic-bezier(.4,0,.2,1);
+  }
+  .cell.merged { background: var(--bad-soft); color: var(--bad); width: auto; padding: 0 10px; font-size: 0.66rem; }
+  .cell.summed { background: var(--good-soft); color: var(--good); border-radius: 50%; }
+  .cell.out { background: var(--paper); border-style: dashed; }
+  .cell.pad { background: var(--paper); color: var(--line); border-style: dashed; }
+  .shape {
+    font-family: ui-monospace, monospace; font-size: 0.66rem; color: var(--ink-soft);
+  }
+  .arrow {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-soft);
+    margin-top: -2px;
+  }
+  .arrow svg { display: block; }
+  .op-tag {
+    font-family: ui-monospace, monospace; font-size: 0.62rem; color: var(--ink-soft);
+    text-align: center; margin-top: -4px;
+  }
+
+  .row-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line);
+    gap: 12px; flex-wrap: wrap;
+  }
+  .row-note {
+    font-family: -apple-system, sans-serif; font-size: 0.8rem; line-height: 1.55; color: var(--ink-soft);
+    max-width: 52ch;
+  }
+  .swap-btn {
+    font-family: ui-monospace, monospace; font-size: 0.68rem; letter-spacing: 0.04em;
+    text-transform: uppercase; background: var(--paper); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 20px; padding: 6px 14px; cursor: pointer;
+    flex: 0 0 auto;
+  }
+  .swap-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .swap-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .caption {
+    font-family: -apple-system, sans-serif; font-size: 0.85rem; line-height: 1.65;
+    color: var(--ink-soft); margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line);
+  }
+  .caption b { color: var(--ink); font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) { .cell { transition: none; } }
+</style>
+
+<main>
+  <p class="eyebrow">Methodology &mdash; Neighbourhood Aggregation, Data Flow</p>
+  <h1>Why the aggregator has to be DeepSets</h1>
+  <p class="lede">
+    Same input both times: <code>K&nbsp;=&nbsp;3</code> neighbour embeddings,
+    slot order arbitrary. Follow the tensor shape through each pipeline.
+    Concatenation bakes slot position into the shape it produces &mdash; sum
+    pooling throws position away on purpose.
+  </p>
+
+  <section class="pipeline-block">
+    <div class="pipeline-head">
+      <span class="pipeline-title sans">Concatenate &amp; MLP</span>
+      <span class="verdict bad">order survives into <code class="mono">z</code></span>
+    </div>
+
+    <div class="flow" id="flow-a">
+      <div class="stage">
+        <div class="stage-label">neighbour embeddings</div>
+        <div class="tensor" id="chips-a">
+          <div class="cell">&phi;&#8321;</div>
+          <div class="cell">&phi;&#8322;</div>
+          <div class="cell">&phi;&#8323;</div>
+        </div>
+        <div class="shape">(K, d)</div>
+      </div>
+      <div class="arrow">
+        <svg width="24" height="10" viewBox="0 0 24 10"><path d="M0 5H22M17 1L22 5L17 9" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      </div>
+      <div class="stage">
+        <div class="stage-label">flatten in slot order</div>
+        <div class="tensor">
+          <div class="cell merged" id="concat-order">&phi;&#8321;&Vert;&phi;&#8322;&Vert;&phi;&#8323;</div>
+        </div>
+        <div class="shape">(K&middot;d,) &mdash; position baked in</div>
+      </div>
+      <div class="arrow">
+        <svg width="24" height="10" viewBox="0 0 24 10"><path d="M0 5H22M17 1L22 5L17 9" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      </div>
+      <div class="stage">
+        <div class="stage-label">shared MLP</div>
+        <div class="tensor">
+          <div class="cell out" id="out-a">z</div>
+        </div>
+        <div class="shape">scalar / vector</div>
+      </div>
+    </div>
+
+    <div class="row-foot">
+      <p class="row-note">Reorder slots 2 &amp; 3 &mdash; the flattened vector
+        is a <i>different point</i> in input space, so the MLP has no reason
+        to map it to the same <code>z</code>.</p>
+      <button class="swap-btn" id="swap-a">Swap slots 2 &amp; 3</button>
+    </div>
+  </section>
+
+  <section class="pipeline-block">
+    <div class="pipeline-head">
+      <span class="pipeline-title sans">DeepSets</span>
+      <span class="verdict good">order discarded before <code class="mono">z</code></span>
+    </div>
+
+    <div class="flow" id="flow-b">
+      <div class="stage">
+        <div class="stage-label">neighbour embeddings</div>
+        <div class="tensor" id="chips-b">
+          <div class="cell">&phi;&#8321;</div>
+          <div class="cell">&phi;&#8322;</div>
+          <div class="cell">&phi;&#8323;</div>
+        </div>
+        <div class="shape">(K, d)</div>
+      </div>
+      <div class="arrow">
+        <svg width="24" height="10" viewBox="0 0 24 10"><path d="M0 5H22M17 1L22 5L17 9" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      </div>
+      <div class="stage">
+        <div class="stage-label">sum over K</div>
+        <div class="tensor">
+          <div class="cell summed">&Sigma;</div>
+        </div>
+        <div class="shape">(d,) &mdash; position gone</div>
+      </div>
+      <div class="arrow">
+        <svg width="24" height="10" viewBox="0 0 24 10"><path d="M0 5H22M17 1L22 5L17 9" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      </div>
+      <div class="stage">
+        <div class="stage-label">readout MLP &rho;</div>
+        <div class="tensor">
+          <div class="cell out" id="out-b">z</div>
+        </div>
+        <div class="shape">scalar / vector</div>
+      </div>
+    </div>
+
+    <div class="row-foot">
+      <p class="row-note">Reorder the same two slots &mdash; addition is
+        commutative, so the sum is bit-for-bit identical and <code>z</code>
+        can't change. Fewer real neighbours than <code>K</code>? Mask them
+        out of the sum; same mechanism, no extra logic.</p>
+      <button class="swap-btn" id="swap-b">Swap slots 2 &amp; 3</button>
+    </div>
+  </section>
+
+  <p class="row-note sans" style="max-width:70ch;margin:0 0 14px;font-size:0.9rem;">
+    Vehicles enter and leave the visible window continuously &mdash; at any
+    step an agent might see 0 neighbours, might see all <code>K</code>.
+    Slot count isn't just unordered, it's <i>variable</i>. Same three
+    moments, both pipelines:
+  </p>
+
+  <section class="pipeline-block">
+    <div class="pipeline-head">
+      <span class="pipeline-title sans">Concatenate &amp; MLP</span>
+      <span class="verdict bad">input size changes every step</span>
+    </div>
+
+    <div class="flow" style="align-items:center; gap:0;">
+      <div class="stage" style="min-width:76px;">
+        <div class="stage-label mono" style="font-size:0.64rem;">t&nbsp;=&nbsp;12</div>
+        <div class="tensor"><div class="cell">&phi;</div><div class="cell">&phi;</div></div>
+        <div class="shape">2 present</div>
+      </div>
+      <div class="stage" style="min-width:76px;">
+        <div class="stage-label mono" style="font-size:0.64rem;">t&nbsp;=&nbsp;13</div>
+        <div class="tensor"><div class="cell">&phi;</div><div class="cell">&phi;</div><div class="cell">&phi;</div><div class="cell">&phi;</div><div class="cell">&phi;</div></div>
+        <div class="shape">5 present</div>
+      </div>
+      <div class="stage" style="min-width:76px;">
+        <div class="stage-label mono" style="font-size:0.64rem;">t&nbsp;=&nbsp;14</div>
+        <div class="tensor"><div class="cell pad">&middot;</div></div>
+        <div class="shape">0 present</div>
+      </div>
+      <div class="arrow">
+        <svg width="24" height="10" viewBox="0 0 24 10"><path d="M0 5H22M17 1L22 5L17 9" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      </div>
+      <div class="stage">
+        <div class="stage-label">flatten</div>
+        <div class="tensor" style="flex-direction:column;gap:3px;">
+          <div class="cell merged" style="width:auto;">(2d,)</div>
+          <div class="cell merged" style="width:auto;">(5d,)</div>
+          <div class="cell merged" style="width:auto;">(0d,)</div>
+        </div>
+        <div class="shape">shape moves with count</div>
+      </div>
+      <div class="arrow">
+        <svg width="24" height="10" viewBox="0 0 24 10"><path d="M0 5H22M17 1L22 5L17 9" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      </div>
+      <div class="stage">
+        <div class="stage-label">fixed-size MLP</div>
+        <div class="tensor"><div class="cell" style="background:var(--bad-soft);color:var(--bad);border-style:dashed;">&#10005;</div></div>
+        <div class="shape">expects one fixed shape</div>
+      </div>
+    </div>
+
+    <div class="row-foot">
+      <p class="row-note">A network built for a <code>2d</code>-length input
+        has no defined behaviour on a <code>5d</code> or <code>0d</code> one.
+        The usual patch &mdash; pad every step out to <code>K&middot;d</code>
+        with zeros &mdash; brings back the slot-order problem from the panel
+        above, since now the network must also learn which zero-blocks mean
+        "no neighbour here" versus a genuinely quiet one.</p>
+    </div>
+  </section>
+
+  <section class="pipeline-block">
+    <div class="pipeline-head">
+      <span class="pipeline-title sans">DeepSets</span>
+      <span class="verdict good">same output shape every time</span>
+    </div>
+
+    <div class="flow" id="flow-c" style="align-items:center; gap:0;">
+      <div class="stage" style="min-width:76px;">
+        <div class="stage-label mono" style="font-size:0.64rem;">t&nbsp;=&nbsp;12</div>
+        <div class="tensor" id="occ-0">
+          <div class="cell">&phi;</div><div class="cell">&phi;</div>
+          <div class="cell pad">&middot;</div><div class="cell pad">&middot;</div><div class="cell pad">&middot;</div>
+        </div>
+        <div class="shape">2 of K</div>
+      </div>
+      <div class="stage" style="min-width:76px;">
+        <div class="stage-label mono" style="font-size:0.64rem;">t&nbsp;=&nbsp;13</div>
+        <div class="tensor" id="occ-1">
+          <div class="cell">&phi;</div><div class="cell">&phi;</div><div class="cell">&phi;</div>
+          <div class="cell">&phi;</div><div class="cell">&phi;</div>
+        </div>
+        <div class="shape">5 of K</div>
+      </div>
+      <div class="stage" style="min-width:76px;">
+        <div class="stage-label mono" style="font-size:0.64rem;">t&nbsp;=&nbsp;14</div>
+        <div class="tensor" id="occ-2">
+          <div class="cell pad">&middot;</div><div class="cell pad">&middot;</div>
+          <div class="cell pad">&middot;</div><div class="cell pad">&middot;</div><div class="cell pad">&middot;</div>
+        </div>
+        <div class="shape">0 of K</div>
+      </div>
+      <div class="arrow">
+        <svg width="24" height="10" viewBox="0 0 24 10"><path d="M0 5H22M17 1L22 5L17 9" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      </div>
+      <div class="stage">
+        <div class="stage-label">masked sum</div>
+        <div class="tensor">
+          <div class="cell summed">&Sigma;</div>
+        </div>
+        <div class="shape">always (d,)</div>
+      </div>
+      <div class="arrow">
+        <svg width="24" height="10" viewBox="0 0 24 10"><path d="M0 5H22M17 1L22 5L17 9" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      </div>
+      <div class="stage">
+        <div class="stage-label">readout &rho;</div>
+        <div class="tensor"><div class="cell out">z</div></div>
+        <div class="shape">same MLP, every t</div>
+      </div>
+    </div>
+
+    <div class="row-foot">
+      <p class="row-note">Empty slots are masked out of the sum, not fed in
+        as zeros pretending to be real neighbours &mdash; 0 present and 5
+        present both land on the exact same <code>(d,)</code> shape, so
+        &rho; is one fixed-size network for every occupancy, no padding
+        trick required.</p>
+    </div>
+  </section>
+
+  <p class="caption">
+    <b>Why it matters here:</b> the <code>K</code> nearest neighbours are
+    reassigned to slots every step as the traffic scene changes &mdash;
+    there's no persistent identity behind "slot 2." Concatenation's output
+    shape <code>(K&middot;d,)</code> encodes <i>which slot</i> each embedding
+    came from, so the MLP after it would have to learn permutation-invariance
+    from data &mdash; spending parameters and samples on a symmetry the
+    problem already guarantees. DeepSets' sum collapses <code>(K,&nbsp;d)</code>
+    to <code>(d,)</code> before the MLP ever sees it:
+    <code>z&nbsp;=&nbsp;&rho;(&Sigma;&#8320; &phi;(neighbour&#8320;))</code>.
+    The invariance is a property of the shape transformation itself, not
+    something learned.
+  </p>
+</main>
+
+<script>
+  function bindSwap(btnId, chipsId, concatId, outId, isConcat) {
+    var btn = document.getElementById(btnId);
+    var chips = document.getElementById(chipsId).children;
+    var out = document.getElementById(outId);
+    var concat = concatId ? document.getElementById(concatId) : null;
+    var swapped = false;
+    var labels = ['φ₁', 'φ₂', 'φ₃'];
+    btn.addEventListener('click', function () {
+      swapped = !swapped;
+      var order = swapped ? [0, 2, 1] : [0, 1, 2];
+      for (var i = 0; i < chips.length; i++) chips[i].textContent = labels[order[i]];
+      if (concat) concat.textContent = labels[order[0]] + '∥' + labels[order[1]] + '∥' + labels[order[2]];
+      out.style.transform = 'scale(1.12)';
+      if (isConcat) out.textContent = swapped ? "z'" : 'z';
+      setTimeout(function () { out.style.transform = 'scale(1)'; }, 220);
+    });
+  }
+  bindSwap('swap-a', 'chips-a', 'concat-order', 'out-a', true);
+  bindSwap('swap-b', 'chips-b', null, 'out-b', false);
+</script>
