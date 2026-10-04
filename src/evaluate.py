@@ -8,10 +8,10 @@ import numpy as np
 import torch
 
 from src.config import N_SIGNALS, N_TYPES, resolve_device
-from src.env import SignallingHighwayEnv
+from src.env import NO_SIGNAL, SignallingHighwayEnv
 from src.metrics import full_rho_report, speaker_consistency
 from src.network import SignallingPolicy
-from src.rollout import nbr_tensors_from_info, self_obs_from_obs
+from src.rollout import self_obs_from_obs
 from src.train import load_checkpoint
 
 
@@ -28,9 +28,9 @@ class EvalResult:
     per_agent_collision_rate: float
     n_episodes: int
     n_steps: int
-    sc: float = 0.0                           # speaker consistency
-    p_sig_given_type: Optional[List] = None   # (n_types, n_signals) as nested list
-    p_type_given_sig: Optional[List] = None   # (n_signals, n_types) as nested list
+    sc: float = 0.0  # speaker consistency
+    p_sig_given_type: Optional[List] = None  # (n_types, n_signals) as nested list
+    p_type_given_sig: Optional[List] = None  # (n_signals, n_types) as nested list
 
 
 def apply_signal_randomisation(
@@ -41,8 +41,7 @@ def apply_signal_randomisation(
 
 
 def apply_signal_hiding(nbr_sig: np.ndarray) -> np.ndarray:
-    """Zero out all signal tokens in the neighbour observation tensors."""
-    return np.zeros_like(nbr_sig)
+    return np.full_like(nbr_sig, NO_SIGNAL)
 
 
 def apply_kinematic_hiding(nbr_obs: np.ndarray) -> np.ndarray:
@@ -212,7 +211,8 @@ def evaluate(
         mi_bits=float(rho_data["mi_bits"]),
         mean_return=float(np.mean(all_rewards)),
         collision_rate=float(np.mean(all_crashed)),
-        per_agent_collision_rate=float(np.sum(all_agent_crashes)) / (n_episodes * ckpt_meta["n_agents"]),
+        per_agent_collision_rate=float(np.sum(all_agent_crashes))
+        / (n_episodes * ckpt_meta["n_agents"]),
         n_episodes=n_episodes,
         n_steps=int(np.sum(all_steps)),
         sc=sc,
@@ -223,19 +223,39 @@ def evaluate(
 
 def main() -> None:
     """Evaluate a checkpoint under all specified interventions and print a summary table."""
-    p = argparse.ArgumentParser(description="Evaluate a trained checkpoint under one or more interventions.")
+    p = argparse.ArgumentParser(
+        description="Evaluate a trained checkpoint under one or more interventions."
+    )
     p.add_argument("--ckpt", type=str, required=True)
     p.add_argument(
         "--interventions",
         nargs="+",
-        default=["baseline", "randomise", "hide", "permute", "hide_kin", "hide_all", "desync"],
-        choices=["baseline", "randomise", "hide", "permute", "hide_kin", "hide_all", "desync"],
+        default=[
+            "baseline",
+            "randomise",
+            "hide",
+            "permute",
+            "hide_kin",
+            "hide_all",
+            "desync",
+        ],
+        choices=[
+            "baseline",
+            "randomise",
+            "hide",
+            "permute",
+            "hide_kin",
+            "hide_all",
+            "desync",
+        ],
     )
     p.add_argument("--episodes", type=int, default=200)
     p.add_argument("--seed", type=int, default=9999)
     p.add_argument("--device", type=str, default="auto")
     p.add_argument("--out", type=str, default="")
-    p.add_argument("--force", action="store_true", help="re-evaluate even if --out already exists")
+    p.add_argument(
+        "--force", action="store_true", help="re-evaluate even if --out already exists"
+    )
     args = p.parse_args()
 
     if args.out and Path(args.out).exists() and not args.force:
@@ -272,7 +292,9 @@ def main() -> None:
             f"{result.n_steps:>8d}"
         )
 
-    print("\nNote: randomise=random tokens, hide=zero signal, hide_kin=zero kinematics, hide_all=both, desync=random profiles.")
+    print(
+        "\nNote: randomise=random tokens, hide=zero signal, hide_kin=zero kinematics, hide_all=both, desync=random profiles."
+    )
 
     if args.out:
         out_path = Path(args.out)

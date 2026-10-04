@@ -11,7 +11,6 @@ from src.config import (
     TYPE_WEIGHTS_BIMODAL,
     TYPE_WEIGHTS_SAME_REWARD,
     TypeWeights,
-    make_bimodal_weights,
 )
 
 # Placeholder signal for background (non-controlled) cars.
@@ -72,7 +71,9 @@ class SignallingHighwayEnv(HighwayEnv):
                 "reward_speed_range": [20, 30],
                 "crash_scale": 1.0,
                 "no_signal": False,
-                "ungrounded": False,
+                # Silent: token still selects the sender's profile but is never
+                # shown to neighbours (separates profile choice from communication).
+                "silent": False,
             }
         )
         return cfg
@@ -246,10 +247,7 @@ class SignallingHighwayEnv(HighwayEnv):
         """Choose the reward weight table based on the experimental condition."""
         condition = self.config.get("type_condition", "bimodal")
         if condition == "bimodal":
-            k = float(self.config.get("divergence_scale", 1.0))
-            if k == 1.0:
-                return TYPE_WEIGHTS_BIMODAL
-            return make_bimodal_weights(k)
+            return TYPE_WEIGHTS_BIMODAL
         elif condition == "same_reward":
             return TYPE_WEIGHTS_SAME_REWARD
         else:
@@ -321,9 +319,10 @@ class SignallingHighwayEnv(HighwayEnv):
             x, y = float(v.position[0]), float(v.position[1])
             vx, vy = float(v.velocity[0]), float(v.velocity[1])
 
-            if vid in controlled_id_to_agent and not self.config.get(
-                "no_signal", False
-            ):
+            hide_token = self.config.get("no_signal", False) or self.config.get(
+                "silent", False
+            )
+            if vid in controlled_id_to_agent and not hide_token:
                 agent_idx = controlled_id_to_agent[vid]
                 sig = int(self._signals[agent_idx])
             else:

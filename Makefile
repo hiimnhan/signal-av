@@ -1,5 +1,7 @@
 
-PYTHON       := python
+# Use the project venv when `make install-gpu` has created it.
+VENV         := .venv
+PYTHON       := $(if $(wildcard $(VENV)/bin/python),$(VENV)/bin/python,python)
 DEVICE       := auto
 
 # Seeds used in all conditions (must match across train + eval for comparability)
@@ -10,12 +12,6 @@ SEEDS := 1 13 33 42 59 270 515 999 100 200 300 400 500 600 700 800 900 1000 1100
 # credit-assignment difficulty is expected to be the principal challenge)
 ITERS_BIMODAL := 1600
 ITERS_CONTROL := 400   # same_reward and random-signal; expected regimes resolve quickly
-ITERS_ALL_CTL    := 1600
-N_AGENTS_ALL_CTL := 20
-N_BG_ALL_CTL     := 0
-N_NBR_ALL_CTL    := 19
-CRITIC_H_ALL_CTL := 512
-ROLLOUT_ALL_CTL  := 512
 
 # Extra args forwarded to src.train for hyperparameter sweeps.
 # Example: make train-bimodal EXTRA_TRAIN_ARGS="--signal-entropy-end 0.003 --aux-coef 0.5"
@@ -44,15 +40,12 @@ CURRICULUM_ITERS := 0
 
 
 
-.PHONY: all \
-        train-all train-bimodal train-same-reward train-random train-no-signal train-ungrounded \
-        train-bimodal-seed train-same-reward-seed train-random-seed train-no-signal-seed train-ungrounded-seed \
-        train-dsweep \
-        eval-all eval-bimodal eval-same-reward eval-random eval-no-signal \
-        eval-bimodal-seed eval-same-reward-seed eval-random-seed eval-no-signal-seed \
-        eval-dsweep \
-        aggregate aggregate-bimodal aggregate-same-reward aggregate-random aggregate-no-signal \
-        aggregate-dsweep \
+.PHONY: all install-gpu \
+        train-all train-bimodal train-same-reward train-random train-no-signal train-silent \
+        train-bimodal-seed train-same-reward-seed train-random-seed train-no-signal-seed train-silent-seed \
+        eval-all eval-bimodal eval-same-reward eval-random eval-no-signal eval-silent \
+        eval-bimodal-seed eval-same-reward-seed eval-random-seed eval-no-signal-seed eval-silent-seed \
+        aggregate aggregate-bimodal aggregate-same-reward aggregate-random aggregate-no-signal aggregate-silent \
         figures analyze training-curves \
         plot-curves-seed plot-curves-bimodal \
         smoke clean-checkpoints clean-results
@@ -60,11 +53,21 @@ CURRICULUM_ITERS := 0
 
 all: train-all eval-all aggregate
 
+install-gpu:
+	@command -v nvidia-smi >/dev/null || { echo "nvidia-smi not found: install the NVIDIA driver first"; exit 1; }
+	@nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+	@command -v uv >/dev/null || [ -x $$HOME/.local/bin/uv ] || curl -LsSf https://astral.sh/uv/install.sh | sh
+	@UV=$$(command -v uv || echo $$HOME/.local/bin/uv); \
+	$$UV venv --python 3.11 $(VENV) && \
+	$$UV pip install --python $(VENV)/bin/python -e .
+	$(VENV)/bin/python -c "import torch; assert torch.cuda.is_available(), 'CUDA not visible to torch: driver too old for this torch build? Update the NVIDIA driver'; print('torch', torch.__version__, '| cuda', torch.version.cuda, '|', torch.cuda.get_device_name(0))"
+	@echo "Installed. Next: make smoke DEVICE=cuda"
+
 bimodal-all: train-bimodal eval-bimodal aggregate-bimodal
 
-train-all: train-bimodal train-same-reward train-random train-no-signal
+train-all: train-bimodal train-same-reward train-random train-no-signal train-silent
 
-eval-all: eval-bimodal eval-same-reward eval-random eval-no-signal
+eval-all: eval-bimodal eval-same-reward eval-random eval-no-signal eval-silent
 
 
 # =============================================================================
@@ -143,6 +146,24 @@ train-no-signal:
 			$(EXTRA_TRAIN_ARGS); \
 	done
 
+# Fifth control: token still selects the sender's execution profile, but
+# neighbours never see it. Same budget and hyperparameters as bimodal.
+train-silent:
+	@mkdir -p $(CKPT_DIR)
+	@for seed in $(SEEDS); do \
+		echo ""; \
+		echo "=== silent seed=$$seed ==="; \
+		$(PYTHON) -m src.train \
+			--condition bimodal \
+			--silent \
+			--seed $$seed \
+			--iters $(ITERS_BIMODAL) \
+			--n-bg-vehicles $(N_BG_VEHICLES) \
+			--curriculum-iters $(CURRICULUM_ITERS) \
+			--device $(DEVICE) \
+			--save-dir $(CKPT_DIR) \
+			$(EXTRA_TRAIN_ARGS); \
+	done
 
 
 # =============================================================================
@@ -193,6 +214,16 @@ train-no-signal-seed:
 		--seed $(SEED) \
 		--iters $(ITERS_BIMODAL) \
 		--crash-scale $(CRASH_SCALE) \
+		--device $(DEVICE) \
+		--save-dir $(CKPT_DIR) \
+		$(EXTRA_TRAIN_ARGS)
+train-silent-seed:
+	@mkdir -p $(CKPT_DIR)
+	$(PYTHON) -m src.train \
+		--condition bimodal \
+		--silent \
+		--seed $(SEED) \
+		--iters $(ITERS_BIMODAL) \
 		--device $(DEVICE) \
 		--save-dir $(CKPT_DIR) \
 		$(EXTRA_TRAIN_ARGS)
@@ -265,6 +296,32 @@ eval-no-signal:
 			--out $$out; \
 	done
 
+eval-silent:
+	@mkdir -p $(RESULT_DIR)
+	@for seed in $(SEEDS); do \
+		ckpt=$(CKPT_DIR)/silent_seed$$seed/final.pt; \
+		out=$(RESULT_DIR)/silent_seed$$seed.json; \
+		echo ""; \
+		echo "=== eval silent seed=$$seed -> $$out ==="; \
+		$(PYTHON) -m src.evaluate \
+			--ckpt $$ckpt \
+			--interventions $(INTERVENTIONS) \
+			--episodes $(EVAL_EPISODES) \
+			--seed $(EVAL_SEED) \
+			--device $(DEVICE) \
+			--out $$out; \
+	done
+
+eval-silent-seed:
+	@mkdir -p $(RESULT_DIR)
+	$(PYTHON) -m src.evaluate \
+		--ckpt $(CKPT_DIR)/silent_seed$(SEED)/final.pt \
+		--interventions $(INTERVENTIONS) \
+		--episodes $(EVAL_EPISODES) \
+		--seed $(EVAL_SEED) \
+		--device $(DEVICE) \
+		--out $(RESULT_DIR)/silent_seed$(SEED).json
+
 eval-no-signal-seed:
 	@mkdir -p $(RESULT_DIR)
 	$(PYTHON) -m src.evaluate \
@@ -311,7 +368,7 @@ eval-random-seed:
 # AGGREGATION
 # =============================================================================
 
-aggregate: aggregate-bimodal aggregate-same-reward aggregate-random aggregate-no-signal
+aggregate: aggregate-bimodal aggregate-same-reward aggregate-random aggregate-no-signal aggregate-silent
 
 aggregate-bimodal:
 	@echo ""
@@ -353,6 +410,16 @@ paths = sorted(Path('$(RESULT_DIR)').glob('no_signal_seed*.json')); \
 print(f'{len(paths)} seeds found'); \
 print_aggregate_table(aggregate_seeds(paths)) if paths else print('no results')"
 
+
+aggregate-silent:
+	@echo ""
+	@echo "=== silent (profile choice, no token shown) ==="
+	@$(PYTHON) -c "\
+from pathlib import Path; \
+from src.metrics import aggregate_seeds, print_aggregate_table; \
+paths = sorted(Path('$(RESULT_DIR)').glob('silent_seed*.json')); \
+print(f'{len(paths)} seeds found'); \
+print_aggregate_table(aggregate_seeds(paths)) if paths else print('no results')"
 
 
 # =============================================================================
@@ -410,6 +477,8 @@ smoke:
 		--condition bimodal \
 		--seed 0 \
 		--iters 3 \
+		--device $(DEVICE) \
+		--force \
 		--save-dir /tmp/signal_av_smoke
 	@echo ""
 	@echo "=== smoke: eval (10 episodes, none only) ==="
@@ -417,7 +486,9 @@ smoke:
 		--ckpt /tmp/signal_av_smoke/bimodal_seed0/final.pt \
 		--interventions baseline \
 		--episodes 10 \
-		--seed 9999
+		--seed 9999 \
+		--device $(DEVICE) \
+		--force
 	@echo ""
 	@echo "=== smoke: PASS ==="
 

@@ -3,6 +3,17 @@ name = "signal-av"
 version = "0.0.1"
 description = "Cooperative signalling-game formulation for multi-agent highway driving"
 requires-python = ">=3.11"
+# PyPI torch on Linux x86_64 bundles CUDA; on macOS it is the CPU/MPS build.
+dependencies = [
+    "torch==2.11.0",
+    "highway-env==1.10.2",
+    "gymnasium==1.3.0",
+    "numpy==2.4.3",
+    "scipy==1.17.1",
+    "pandas==3.0.2",
+    "matplotlib==3.10.9",
+    "statsmodels==0.14.6",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

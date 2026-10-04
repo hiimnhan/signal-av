@@ -95,33 +95,6 @@ TYPE_WEIGHTS_BIMODAL = [CAUTIOUS, ASSERTIVE]
 TYPE_WEIGHTS_SAME_REWARD = [CAUTIOUS, CAUTIOUS]
 
 
-def make_bimodal_weights(k: float) -> list:
-    """Interpolate TypeWeights at divergence scale k. k=1.0 = bimodal, k=0 = midpoint (NOT equal to same-reward baseline)."""
-    cp = (CAUTIOUS.collision_penalty + ASSERTIVE.collision_penalty) / 2
-    sp = (CAUTIOUS.speed_reward + ASSERTIVE.speed_reward) / 2
-    rl = (CAUTIOUS.right_lane_reward + ASSERTIVE.right_lane_reward) / 2
-    on = (CAUTIOUS.on_road_reward + ASSERTIVE.on_road_reward) / 2
-
-    dcp = (CAUTIOUS.collision_penalty - ASSERTIVE.collision_penalty) / 2
-    dsp = (CAUTIOUS.speed_reward - ASSERTIVE.speed_reward) / 2
-    drl = (CAUTIOUS.right_lane_reward - ASSERTIVE.right_lane_reward) / 2
-    don = (CAUTIOUS.on_road_reward - ASSERTIVE.on_road_reward) / 2
-
-    new_c = TypeWeights(
-        collision_penalty=cp + k * dcp,
-        speed_reward=sp + k * dsp,
-        right_lane_reward=rl + k * drl,
-        on_road_reward=on + k * don,
-    )
-    new_a = TypeWeights(
-        collision_penalty=cp - k * dcp,
-        speed_reward=sp - k * dsp,
-        right_lane_reward=rl - k * drl,
-        on_road_reward=on - k * don,
-    )
-    return [new_c, new_a]
-
-
 N_TYPES = 2  # |Theta|
 
 

@@ -1,9 +1,14 @@
 import argparse
 import csv
 import json
+import os
 import random
 import time
 from pathlib import Path
+
+# cuBLAS refuses deterministic mode on CUDA without a fixed workspace; must be
+# set before the first CUDA call. Harmless on CPU/MPS.
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
 import numpy as np
 import torch
@@ -253,8 +258,8 @@ def train(args: argparse.Namespace) -> None:
     device = resolve_device(args.device)
     print(f"device: {device}")
 
-    assert not (args.no_signal and args.ungrounded), (
-        "use only one of --no-signal / --ungrounded"
+    assert sum([args.no_signal, args.silent, args.random_signal]) <= 1, (
+        "use at most one of --no-signal / --silent / --random-signal"
     )
 
     run_label = (
@@ -262,8 +267,8 @@ def train(args: argparse.Namespace) -> None:
         if args.run_name
         else "no_signal"
         if args.no_signal
-        else "ungrounded"
-        if args.ungrounded
+        else "silent"
+        if args.silent
         else "random"
         if args.random_signal
         else args.condition
@@ -280,11 +285,10 @@ def train(args: argparse.Namespace) -> None:
         "vehicles_count": args.n_bg_vehicles,
         "n_neighbours": args.n_neighbours,
         "type_condition": args.condition,
-        "divergence_scale": args.divergence_scale,
         "crash_scale": args.crash_scale,
         "seed": args.seed,
         "no_signal": args.no_signal,
-        "ungrounded": args.ungrounded,
+        "silent": args.silent,
     }
     env = SignallingHighwayEnv(config=env_config)
     obs, info = env.reset(seed=args.seed)
@@ -329,7 +333,7 @@ def train(args: argparse.Namespace) -> None:
     n_policy = sum(p.numel() for p in policy.parameters())
     n_critic = sum(p.numel() for p in critic.parameters())
     print(
-        f"Training: condition={args.condition}, seed={args.seed}, iters={args.iters}, random_signal={args.random_signal}, no_signal={args.no_signal}"
+        f"Training: condition={args.condition}, seed={args.seed}, iters={args.iters}, random_signal={args.random_signal}, no_signal={args.no_signal}, silent={args.silent}"
     )
     print(
         f"  env: n_agents={args.n_agents}, n_bg={args.n_bg_vehicles}, n_neighbours={args.n_neighbours}"
@@ -469,22 +473,7 @@ def train(args: argparse.Namespace) -> None:
                 metrics_file.flush()
 
             if (it + 1) % train_cfg.checkpoint_every == 0:
-                label = (
-                    args.run_name
-                    if args.run_name
-                    else "no_signal"
-                    if args.no_signal
-                    else "ungrounded"
-                    if args.ungrounded
-                    else "random"
-                    if args.random_signal
-                    else args.condition
-                )
-                ckpt_path = (
-                    Path(args.save_dir)
-                    / f"{label}_seed{args.seed}"
-                    / f"iter_{it + 1:04d}.pt"
-                )
+                ckpt_path = run_dir / f"iter_{it + 1:04d}.pt"
                 save_checkpoint(
                     ckpt_path,
                     policy,
@@ -496,18 +485,6 @@ def train(args: argparse.Namespace) -> None:
                 )
                 print(f"  -> checkpoint saved: {ckpt_path}")
 
-        label = (
-            args.run_name
-            if args.run_name
-            else "no_signal"
-            if args.no_signal
-            else "ungrounded"
-            if args.ungrounded
-            else "random"
-            if args.random_signal
-            else args.condition
-        )
-        final_path = Path(args.save_dir) / f"{label}_seed{args.seed}" / "final.pt"
         save_checkpoint(
             final_path, policy, critic, train_cfg, env_config, obs_features, n_agents
         )
@@ -521,10 +498,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--condition", type=str, default="bimodal", choices=["bimodal", "same_reward"]
     )
-    p.add_argument("--divergence-scale", type=float, default=1.0)
     p.add_argument("--random-signal", action="store_true")
     p.add_argument("--no-signal", action="store_true")
-    p.add_argument("--ungrounded", action="store_true")
+    p.add_argument(
+        "--silent",
+        action="store_true",
+        help="token selects own profile but is hidden from neighbours (fifth control)",
+    )
     p.add_argument("--n-agents", type=int, default=6)
     p.add_argument("--n-bg-vehicles", type=int, default=0)
     p.add_argument("--n-neighbours", type=int, default=5)
