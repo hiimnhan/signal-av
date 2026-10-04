@@ -4,6 +4,16 @@ VENV         := .venv
 PYTHON       := $(if $(wildcard $(VENV)/bin/python),$(VENV)/bin/python,python)
 DEVICE       := auto
 
+# Parallel seeds: make train-silent JOBS=16 (one process per seed; per-seed logs in LOG_DIR).
+JOBS         := 16
+LOG_DIR      := logs
+# FORCE=1 retrains / re-evaluates even when final.pt or the result JSON exists.
+FORCE        :=
+FORCE_FLAG   := $(if $(FORCE),--force,)
+# One BLAS/OpenMP thread per process, so parallel seeds don't oversubscribe the CPU.
+export OMP_NUM_THREADS ?= 1
+export MKL_NUM_THREADS ?= 1
+
 # Seeds used in all conditions (must match across train + eval for comparability)
 # 1 13 33 42 59 270 515 999
 SEEDS := 1 13 33 42 59 270 515 999 100 200 300 400 500 600 700 800 900 1000 1100 1200
@@ -76,10 +86,11 @@ eval-all: eval-bimodal eval-same-reward eval-random eval-no-signal eval-silent
 
 train-bimodal:
 	@mkdir -p $(CKPT_DIR)
-	@for seed in $(SEEDS); do \
+	@mkdir -p $(LOG_DIR)
+	@printf '%s\n' $(SEEDS) | xargs -n 1 -P $(JOBS) sh -c 'seed=$$1; log=$(LOG_DIR)/$@_seed$$seed.log; ( \
 		echo ""; \
 		echo "=== bimodal seed=$$seed ==="; \
-		$(PYTHON) -m src.train \
+		$(PYTHON) -m src.train $(FORCE_FLAG) \
 			--condition bimodal \
 			--seed $$seed \
 			--n-bg-vehicles $(N_BG_VEHICLES) \
@@ -87,14 +98,15 @@ train-bimodal:
 			--device $(DEVICE) \
 			--save-dir $(CKPT_DIR) \
 			$(EXTRA_TRAIN_ARGS); \
-	done
+	) > $$log 2>&1 && echo "done $@ seed=$$seed" || { echo "FAILED $@ seed=$$seed (see $$log)"; exit 1; }' _
 
 train-same-reward:
 	@mkdir -p $(CKPT_DIR)
-	@for seed in $(SEEDS); do \
+	@mkdir -p $(LOG_DIR)
+	@printf '%s\n' $(SEEDS) | xargs -n 1 -P $(JOBS) sh -c 'seed=$$1; log=$(LOG_DIR)/$@_seed$$seed.log; ( \
 		echo ""; \
 		echo "=== same_reward seed=$$seed ==="; \
-		$(PYTHON) -m src.train \
+		$(PYTHON) -m src.train $(FORCE_FLAG) \
 			--condition same_reward \
 			--seed $$seed \
 			--iters $(ITERS_CONTROL) \
@@ -106,14 +118,15 @@ train-same-reward:
 			--device $(DEVICE) \
 			--save-dir $(CKPT_DIR) \
 			$(EXTRA_TRAIN_ARGS); \
-	done
+	) > $$log 2>&1 && echo "done $@ seed=$$seed" || { echo "FAILED $@ seed=$$seed (see $$log)"; exit 1; }' _
 
 train-random:
 	@mkdir -p $(CKPT_DIR)
-	@for seed in $(SEEDS); do \
+	@mkdir -p $(LOG_DIR)
+	@printf '%s\n' $(SEEDS) | xargs -n 1 -P $(JOBS) sh -c 'seed=$$1; log=$(LOG_DIR)/$@_seed$$seed.log; ( \
 		echo ""; \
 		echo "=== random-signal seed=$$seed ==="; \
-		$(PYTHON) -m src.train \
+		$(PYTHON) -m src.train $(FORCE_FLAG) \
 			--condition bimodal \
 			--random-signal \
 			--seed $$seed \
@@ -126,14 +139,15 @@ train-random:
 			--device $(DEVICE) \
 			--save-dir $(CKPT_DIR) \
 			$(EXTRA_TRAIN_ARGS); \
-	done
+	) > $$log 2>&1 && echo "done $@ seed=$$seed" || { echo "FAILED $@ seed=$$seed (see $$log)"; exit 1; }' _
 
 train-no-signal:
 	@mkdir -p $(CKPT_DIR)
-	@for seed in $(SEEDS); do \
+	@mkdir -p $(LOG_DIR)
+	@printf '%s\n' $(SEEDS) | xargs -n 1 -P $(JOBS) sh -c 'seed=$$1; log=$(LOG_DIR)/$@_seed$$seed.log; ( \
 		echo ""; \
 		echo "=== no-signal baseline seed=$$seed ==="; \
-		$(PYTHON) -m src.train \
+		$(PYTHON) -m src.train $(FORCE_FLAG) \
 			--condition bimodal \
 			--no-signal \
 			--seed $$seed \
@@ -144,16 +158,16 @@ train-no-signal:
 			--device $(DEVICE) \
 			--save-dir $(CKPT_DIR) \
 			$(EXTRA_TRAIN_ARGS); \
-	done
+	) > $$log 2>&1 && echo "done $@ seed=$$seed" || { echo "FAILED $@ seed=$$seed (see $$log)"; exit 1; }' _
 
-# Fifth control: token still selects the sender's execution profile, but
-# neighbours never see it. Same budget and hyperparameters as bimodal.
+
 train-silent:
 	@mkdir -p $(CKPT_DIR)
-	@for seed in $(SEEDS); do \
+	@mkdir -p $(LOG_DIR)
+	@printf '%s\n' $(SEEDS) | xargs -n 1 -P $(JOBS) sh -c 'seed=$$1; log=$(LOG_DIR)/$@_seed$$seed.log; ( \
 		echo ""; \
 		echo "=== silent seed=$$seed ==="; \
-		$(PYTHON) -m src.train \
+		$(PYTHON) -m src.train $(FORCE_FLAG) \
 			--condition bimodal \
 			--silent \
 			--seed $$seed \
@@ -163,7 +177,7 @@ train-silent:
 			--device $(DEVICE) \
 			--save-dir $(CKPT_DIR) \
 			$(EXTRA_TRAIN_ARGS); \
-	done
+	) > $$log 2>&1 && echo "done $@ seed=$$seed" || { echo "FAILED $@ seed=$$seed (see $$log)"; exit 1; }' _
 
 
 # =============================================================================
@@ -172,7 +186,7 @@ train-silent:
 
 train-bimodal-seed:
 	@mkdir -p $(CKPT_DIR)
-	$(PYTHON) -m src.train \
+	$(PYTHON) -m src.train $(FORCE_FLAG) \
 		--condition bimodal \
 		--seed $(SEED) \
 		--device $(DEVICE) \
@@ -181,7 +195,7 @@ train-bimodal-seed:
 
 train-same-reward-seed:
 	@mkdir -p $(CKPT_DIR)
-	$(PYTHON) -m src.train \
+	$(PYTHON) -m src.train $(FORCE_FLAG) \
 		--condition same_reward \
 		--seed $(SEED) \
 		--iters $(ITERS_CONTROL) \
@@ -194,7 +208,7 @@ train-same-reward-seed:
 
 train-random-seed:
 	@mkdir -p $(CKPT_DIR)
-	$(PYTHON) -m src.train \
+	$(PYTHON) -m src.train $(FORCE_FLAG) \
 		--condition bimodal \
 		--random-signal \
 		--seed $(SEED) \
@@ -208,7 +222,7 @@ train-random-seed:
 
 train-no-signal-seed:
 	@mkdir -p $(CKPT_DIR)
-	$(PYTHON) -m src.train \
+	$(PYTHON) -m src.train $(FORCE_FLAG) \
 		--condition bimodal \
 		--no-signal \
 		--seed $(SEED) \
@@ -219,7 +233,7 @@ train-no-signal-seed:
 		$(EXTRA_TRAIN_ARGS)
 train-silent-seed:
 	@mkdir -p $(CKPT_DIR)
-	$(PYTHON) -m src.train \
+	$(PYTHON) -m src.train $(FORCE_FLAG) \
 		--condition bimodal \
 		--silent \
 		--seed $(SEED) \
@@ -234,87 +248,92 @@ train-silent-seed:
 
 eval-bimodal:
 	@mkdir -p $(RESULT_DIR)
-	@for seed in $(SEEDS); do \
+	@mkdir -p $(LOG_DIR)
+	@printf '%s\n' $(SEEDS) | xargs -n 1 -P $(JOBS) sh -c 'seed=$$1; log=$(LOG_DIR)/$@_seed$$seed.log; ( \
 		ckpt=$(CKPT_DIR)/bimodal_seed$$seed/final.pt; \
 		out=$(RESULT_DIR)/bimodal_seed$$seed.json; \
 		echo ""; \
 		echo "=== eval bimodal seed=$$seed -> $$out ==="; \
-		$(PYTHON) -m src.evaluate \
+		$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 			--ckpt $$ckpt \
 			--interventions $(INTERVENTIONS) \
 			--episodes $(EVAL_EPISODES) \
 			--seed $(EVAL_SEED) \
 			--device $(DEVICE) \
 			--out $$out; \
-	done
+	) > $$log 2>&1 && echo "done $@ seed=$$seed" || { echo "FAILED $@ seed=$$seed (see $$log)"; exit 1; }' _
 
 eval-same-reward:
 	@mkdir -p $(RESULT_DIR)
-	@for seed in $(SEEDS); do \
+	@mkdir -p $(LOG_DIR)
+	@printf '%s\n' $(SEEDS) | xargs -n 1 -P $(JOBS) sh -c 'seed=$$1; log=$(LOG_DIR)/$@_seed$$seed.log; ( \
 		ckpt=$(CKPT_DIR)/same_reward_seed$$seed/final.pt; \
 		out=$(RESULT_DIR)/same_reward_seed$$seed.json; \
 		echo ""; \
 		echo "=== eval same_reward seed=$$seed -> $$out ==="; \
-		$(PYTHON) -m src.evaluate \
+		$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 			--ckpt $$ckpt \
 			--interventions $(INTERVENTIONS) \
 			--episodes $(EVAL_EPISODES) \
 			--seed $(EVAL_SEED) \
 			--device $(DEVICE) \
 			--out $$out; \
-	done
+	) > $$log 2>&1 && echo "done $@ seed=$$seed" || { echo "FAILED $@ seed=$$seed (see $$log)"; exit 1; }' _
 
 eval-random:
 	@mkdir -p $(RESULT_DIR)
-	@for seed in $(SEEDS); do \
+	@mkdir -p $(LOG_DIR)
+	@printf '%s\n' $(SEEDS) | xargs -n 1 -P $(JOBS) sh -c 'seed=$$1; log=$(LOG_DIR)/$@_seed$$seed.log; ( \
 		ckpt=$(CKPT_DIR)/random_seed$$seed/final.pt; \
 		out=$(RESULT_DIR)/random_seed$$seed.json; \
 		echo ""; \
 		echo "=== eval random seed=$$seed -> $$out ==="; \
-		$(PYTHON) -m src.evaluate \
+		$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 			--ckpt $$ckpt \
 			--interventions $(INTERVENTIONS) \
 			--episodes $(EVAL_EPISODES) \
 			--seed $(EVAL_SEED) \
 			--device $(DEVICE) \
 			--out $$out; \
-	done
+	) > $$log 2>&1 && echo "done $@ seed=$$seed" || { echo "FAILED $@ seed=$$seed (see $$log)"; exit 1; }' _
 
 eval-no-signal:
 	@mkdir -p $(RESULT_DIR)
-	@for seed in $(SEEDS); do \
+	@mkdir -p $(LOG_DIR)
+	@printf '%s\n' $(SEEDS) | xargs -n 1 -P $(JOBS) sh -c 'seed=$$1; log=$(LOG_DIR)/$@_seed$$seed.log; ( \
 		ckpt=$(CKPT_DIR)/no_signal_seed$$seed/final.pt; \
 		out=$(RESULT_DIR)/no_signal_seed$$seed.json; \
 		echo ""; \
 		echo "=== eval no-signal seed=$$seed -> $$out ==="; \
-		$(PYTHON) -m src.evaluate \
+		$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 			--ckpt $$ckpt \
 			--interventions baseline \
 			--episodes $(EVAL_EPISODES) \
 			--seed $(EVAL_SEED) \
 			--device $(DEVICE) \
 			--out $$out; \
-	done
+	) > $$log 2>&1 && echo "done $@ seed=$$seed" || { echo "FAILED $@ seed=$$seed (see $$log)"; exit 1; }' _
 
 eval-silent:
 	@mkdir -p $(RESULT_DIR)
-	@for seed in $(SEEDS); do \
+	@mkdir -p $(LOG_DIR)
+	@printf '%s\n' $(SEEDS) | xargs -n 1 -P $(JOBS) sh -c 'seed=$$1; log=$(LOG_DIR)/$@_seed$$seed.log; ( \
 		ckpt=$(CKPT_DIR)/silent_seed$$seed/final.pt; \
 		out=$(RESULT_DIR)/silent_seed$$seed.json; \
 		echo ""; \
 		echo "=== eval silent seed=$$seed -> $$out ==="; \
-		$(PYTHON) -m src.evaluate \
+		$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 			--ckpt $$ckpt \
 			--interventions $(INTERVENTIONS) \
 			--episodes $(EVAL_EPISODES) \
 			--seed $(EVAL_SEED) \
 			--device $(DEVICE) \
 			--out $$out; \
-	done
+	) > $$log 2>&1 && echo "done $@ seed=$$seed" || { echo "FAILED $@ seed=$$seed (see $$log)"; exit 1; }' _
 
 eval-silent-seed:
 	@mkdir -p $(RESULT_DIR)
-	$(PYTHON) -m src.evaluate \
+	$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 		--ckpt $(CKPT_DIR)/silent_seed$(SEED)/final.pt \
 		--interventions $(INTERVENTIONS) \
 		--episodes $(EVAL_EPISODES) \
@@ -324,7 +343,7 @@ eval-silent-seed:
 
 eval-no-signal-seed:
 	@mkdir -p $(RESULT_DIR)
-	$(PYTHON) -m src.evaluate \
+	$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 		--ckpt $(CKPT_DIR)/no_signal_seed$(SEED)/final.pt \
 		--interventions baseline \
 		--episodes $(EVAL_EPISODES) \
@@ -334,7 +353,7 @@ eval-no-signal-seed:
 
 eval-bimodal-seed:
 	@mkdir -p $(RESULT_DIR)
-	$(PYTHON) -m src.evaluate \
+	$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 		--ckpt $(CKPT_DIR)/bimodal_seed$(SEED)/final.pt \
 		--interventions $(INTERVENTIONS) \
 		--episodes $(EVAL_EPISODES) \
@@ -344,7 +363,7 @@ eval-bimodal-seed:
 
 eval-same-reward-seed:
 	@mkdir -p $(RESULT_DIR)
-	$(PYTHON) -m src.evaluate \
+	$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 		--ckpt $(CKPT_DIR)/same_reward_seed$(SEED)/final.pt \
 		--interventions $(INTERVENTIONS) \
 		--episodes $(EVAL_EPISODES) \
@@ -354,7 +373,7 @@ eval-same-reward-seed:
 
 eval-random-seed:
 	@mkdir -p $(RESULT_DIR)
-	$(PYTHON) -m src.evaluate \
+	$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 		--ckpt $(CKPT_DIR)/random_seed$(SEED)/final.pt \
 		--interventions $(INTERVENTIONS) \
 		--episodes $(EVAL_EPISODES) \
@@ -473,7 +492,7 @@ plot-curves-bimodal:
 
 smoke:
 	@echo "=== smoke: 3-iter bimodal seed=0 ==="
-	$(PYTHON) -m src.train \
+	$(PYTHON) -m src.train $(FORCE_FLAG) \
 		--condition bimodal \
 		--seed 0 \
 		--iters 3 \
@@ -482,7 +501,7 @@ smoke:
 		--save-dir /tmp/signal_av_smoke
 	@echo ""
 	@echo "=== smoke: eval (10 episodes, none only) ==="
-	$(PYTHON) -m src.evaluate \
+	$(PYTHON) -m src.evaluate $(FORCE_FLAG) \
 		--ckpt /tmp/signal_av_smoke/bimodal_seed0/final.pt \
 		--interventions baseline \
 		--episodes 10 \
