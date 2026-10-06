@@ -4,8 +4,8 @@ VENV         := .venv
 PYTHON       := $(if $(wildcard $(VENV)/bin/python),$(VENV)/bin/python,python)
 DEVICE       := auto
 
-# Parallel seeds: make train-silent JOBS=16 (one process per seed; per-seed logs in LOG_DIR).
-JOBS         := 16
+# Parallel seeds: make train-silent JOBS=14 (one process per seed; per-seed logs in LOG_DIR).
+JOBS         := 14
 LOG_DIR      := logs
 # FORCE=1 retrains / re-evaluates even when final.pt or the result JSON exists.
 FORCE        :=
